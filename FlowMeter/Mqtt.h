@@ -1,0 +1,48 @@
+#ifndef Mqtt_h
+#define Mqtt_h
+
+#include <PubSubClient.h>
+#include <ESP8266WiFi.h>
+#include <ArduinoJson.h>
+#include "Display.h"
+
+extern Display display;
+extern char mqttTopicSet[];
+extern void IRAM_ATTR pulseCounter();
+extern String textHeader;
+extern int sensor;
+extern volatile byte pulseCount;
+extern float totalLitres;
+extern unsigned int totalMilliLitres;
+extern volatile byte pulseTotal;
+extern volatile long myPulseCount;
+
+extern double valorMl;
+extern double saldo;
+extern String descricao;
+extern int comando;
+extern int codCliente;
+extern double totalValue;
+extern double quantidade;
+extern float conversionFactor;
+
+extern volatile uint8_t mqttUiPending;
+
+extern volatile bool valveStabilizing;
+extern unsigned long valveStabilizeStart;
+
+extern bool servingDisplayFrozen;
+
+class Mqtt {
+public:
+  Mqtt();
+  bool connect(const char *mqtt_broker, int mqtt_port, const char *mqtt_username, const char *mqtt_password, const char *topic, const char *topicSet);
+  void publish(const char *topic, String msg);
+  static void callback(char *topic, byte *payload, unsigned int length);
+  void loop();
+private:
+  WiFiClient wifiClient;
+  PubSubClient mqttClient;
+};
+
+#endif
