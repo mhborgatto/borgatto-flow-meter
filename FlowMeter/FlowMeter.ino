@@ -63,6 +63,9 @@ double frozenServingValue = 0.0;
 volatile bool valveStabilizing = false;
 unsigned long valveStabilizeStart = 0;
 
+/** Só contabiliza pulsos do medidor após comando MQTT 1 (válvula liberada). */
+volatile bool enableFlowPulseCounting = false;
+
 bool httpReportPending = false;
 
 static String choppLabel() {
@@ -145,7 +148,7 @@ void setup() {
 
   webserver.begin();
 
-  attachInterrupt(digitalPinToInterrupt(sensor), flowMeter.pulseCounter, FALLING);
+  detachInterrupt(digitalPinToInterrupt(sensor));
 
   display.showFilling(textHeader, choppLabel(), "Aguardando", "Liberação");
 }
@@ -183,7 +186,11 @@ void loop() {
       totalValue = 0;
       flowRate = 0.0;
       flowMeter.resetDisplayState();
-      attachInterrupt(digitalPinToInterrupt(sensor), flowMeter.pulseCounter, FALLING);
+      if (enableFlowPulseCounting) {
+        attachInterrupt(digitalPinToInterrupt(sensor), flowMeter.pulseCounter, FALLING);
+      } else {
+        detachInterrupt(digitalPinToInterrupt(sensor));
+      }
       valveStabilizing = false;
     }
     return;

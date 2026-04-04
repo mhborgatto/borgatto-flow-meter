@@ -108,6 +108,7 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
 
   if (comando == 0) {
     Serial.println("Desacione o Pino");
+    enableFlowPulseCounting = false;
     detachInterrupt(digitalPinToInterrupt(sensor));
     servingDisplayFrozen = false;
     digitalWrite(D1, HIGH);
@@ -118,6 +119,7 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
 
   if (comando == 1) {
     Serial.println("Acione o Pino");
+    enableFlowPulseCounting = true;
     detachInterrupt(digitalPinToInterrupt(sensor));
     servingDisplayFrozen = false;
     digitalWrite(D1, LOW);

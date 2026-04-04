@@ -30,6 +30,7 @@ extern volatile uint8_t mqttUiPending;
 
 extern volatile bool valveStabilizing;
 extern unsigned long valveStabilizeStart;
+extern volatile bool enableFlowPulseCounting;
 
 extern bool servingDisplayFrozen;
 
