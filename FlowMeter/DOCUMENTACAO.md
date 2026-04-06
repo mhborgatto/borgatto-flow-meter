@@ -473,6 +473,21 @@ Exemplo: limite de saldo = R$ 1,00 com valorMl = 1,00
 | **ESP8266_SSD1306** (ThingPulse) | Driver do display OLED |
 | **Wire** | Comunicação I2C (incluída no core) |
 
+**Checklist — instalar no Gestor de Bibliotecas (Arduino IDE):** o sketch **não** inclui estas dependências; é preciso instalá-las todas antes de compilar.
+
+| Procurar por… | Instalar (nome no gestor) | Cabeçalho típico |
+|---|---|---|
+| `PubSubClient` | **PubSubClient** (Nick O'Leary) | `PubSubClient.h` |
+| `ArduinoJson` | **ArduinoJson** (Benoît Blanchon), v6 ou v7 | `ArduinoJson.h` |
+| `WiFiManager` | **WiFiManager** — no gestor aparece como maintainer **tablatronix** (projeto original tzapu) | `WiFiManager.h` |
+| `ThingPulse` ou `SSD1306` | **ESP8266 and ESP32 OLED driver for SSD1306 displays** | `SSD1306Wire.h` |
+
+**Instalação do OLED (Arduino IDE):** em **Ferramentas → Gerir bibliotecas…**, procurar por `ThingPulse` ou `SSD1306` e instalar **ESP8266 and ESP32 OLED driver for SSD1306 displays** (o ficheiro `SSD1306Wire.h` faz parte desta biblioteca). Sem ela, a compilação falha com `SSD1306Wire.h: No such file or directory`.
+
+**MQTT:** sem **PubSubClient** (Nick O'Leary), a compilação falha com `PubSubClient.h: No such file or directory`.
+
+**Alternativa:** na raiz do repositório existe [`platformio.ini`](../platformio.ini); com [PlatformIO](https://platformio.org/) instalado, executar `pio run -e nodemcuv2` para descarregar dependências e compilar automaticamente.
+
 ### 11.1 Configuração do Arduino IDE
 
 1. **Gestor de Placas:** instalar "ESP8266 by ESP8266 Community"
@@ -543,6 +558,10 @@ A EEPROM do ESP8266 suporta ~100.000 ciclos de escrita. Evitar salvar configura�
 | Mensagens MQTT ignoradas | Token não confere | Verificar `deviceToken` no WebServer e `token` no JSON |
 | Upload falha (PermissionError COM) | Porta serial em uso | Fechar Serial Monitor e outros programas que usem a porta COM |
 | Erro `brzo_i2c` na compilação | Biblioteca Brzo I2C incompatível | Usar `SSD1306Wire` em vez de `SSD1306Brzo` (já corrigido) |
+| `SSD1306Wire.h: No such file or directory` | Biblioteca ThingPulse do OLED não instalada | Instalar **ESP8266 and ESP32 OLED driver for SSD1306 displays** no Gestor de Bibliotecas (secção 11) ou compilar com PlatformIO (`pio run` na raiz do repo) |
+| `PubSubClient.h: No such file or directory` | Biblioteca MQTT não instalada | Instalar **PubSubClient** (autor Nick O'Leary) no Gestor de Bibliotecas — secção 11, checklist |
+| `ArduinoJson.h: No such file or directory` | ArduinoJson não instalada | Instalar **ArduinoJson** (Benoît Blanchon) no Gestor de Bibliotecas — secção 11, checklist |
+| `WiFiManager.h: No such file or directory` | WiFiManager não instalada | Instalar **WiFiManager** no Gestor de Bibliotecas (maintainer **tablatronix**; repo original tzapu) — secção 11, checklist |
 | Browser mostra pedido de login ou página em branco ao abrir o IP | **Basic Auth** activo | Utilizador `admin`, senha `ADMBORGATTO` (ou as que definiste no firmware); ver [secção 5.2](#52-autenticação-http-basic-auth) |
 | `401 Unauthorized` ou `curl` sem dados em `/status` | Falta cabeçalho `Authorization` | Usar `curl -u admin:ADMBORGATTO http://<IP>/status` — [secção 5.5](#55-resposta-do-get-status) |
 | MQTT funciona mas não há ping nem HTTP ao IP do display | Isolamento entre clientes WiFi, VLANs ou firewall | Ver [secção 5.1](#51-como-aceder); ajustar router (ACL, desactivar *AP isolation*) ou testar a partir da mesma sub-rede |

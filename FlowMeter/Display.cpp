@@ -5,10 +5,11 @@ Display::Display()
 }
 
 void Display::recoverI2CBus() {
-  Wire.end();
-  pinMode(D3, INPUT_PULLUP);
-  pinMode(D5, OUTPUT);
+  // Wire.end() não existe no core ESP8266; manipulamos os pinos diretamente
+  pinMode(D5, OUTPUT);        // SCL
+  pinMode(D3, INPUT_PULLUP);  // SDA
 
+  // 9 pulsos de clock para destravar slave com SDA preso em LOW
   for (int i = 0; i < 9; i++) {
     digitalWrite(D5, LOW);
     delayMicroseconds(5);
@@ -17,13 +18,16 @@ void Display::recoverI2CBus() {
     if (digitalRead(D3) == HIGH) break;
   }
 
+  // Condição de STOP: SDA sobe enquanto SCL está HIGH
   pinMode(D3, OUTPUT);
   digitalWrite(D3, LOW);
   delayMicroseconds(5);
   digitalWrite(D5, HIGH);
   delayMicroseconds(5);
   digitalWrite(D3, HIGH);
+  delayMicroseconds(5);
 
+  // Reentrega os pinos ao Wire
   Wire.begin(D3, D5);
 }
 
