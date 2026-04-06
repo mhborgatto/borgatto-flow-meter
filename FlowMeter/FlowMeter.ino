@@ -154,6 +154,14 @@ void setup() {
 }
 
 void loop() {
+  display.healthCheck();
+
+  static unsigned long lastHeapLog = 0;
+  if (millis() - lastHeapLog > 30000) {
+    Serial.printf("[HEAP] Free: %u bytes\n", ESP.getFreeHeap());
+    lastHeapLog = millis();
+  }
+
   if (mqttStatus) {
     mqtt.loop();
   }
