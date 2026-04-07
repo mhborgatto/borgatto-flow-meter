@@ -10,6 +10,7 @@ double lastPaintedValue = -1.0;
 long lastPaintedPulses = -1;
 long frozenSnapshotPulses = 0;
 long lastDebugLoggedMyPulseCount = 0;
+long lastActivityPulseCount = 0;
 }  // namespace
 
 static const char* choppName() {
@@ -21,6 +22,7 @@ void FlowMeter::resetDisplayState() {
   lastPaintedMl = -1.0;
   lastPaintedValue = -1.0;
   lastPaintedPulses = -1;
+  lastActivityPulseCount = 0;
 }
 
 void ICACHE_RAM_ATTR FlowMeter::pulseCounter() {
@@ -58,8 +60,9 @@ void FlowMeter::calculateFlowV1() {
 
   flowMilliLitres = round(static_cast<double>(pc) * conversionFactor * 1000.0) / 1000.0;
 
-  if (pc > 0) {
+  if (pc > 0 && pc != lastActivityPulseCount) {
     lastFlowActivityMs = millis();
+    lastActivityPulseCount = pc;
   }
 
   if (pc != lastDebugLoggedMyPulseCount) {
