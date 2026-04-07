@@ -31,7 +31,7 @@ void ICACHE_RAM_ATTR FlowMeter::pulseCounter() {
 void FlowMeter::calculateFlowV1() {
   if (servingDisplayFrozen) {
     char msg_vol_out[40];
-    snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.3f ml  P:%ld", frozenServingMl,
+    snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.0f ml  P:%ld", frozenServingMl,
              frozenSnapshotPulses);
     char msg_out[24];
     snprintf(msg_out, sizeof(msg_out), "R$: %.2f", frozenServingValue);
@@ -72,7 +72,7 @@ void FlowMeter::calculateFlowV1() {
   }
 
   char msg_vol_out[40];
-  snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.3f ml  P:%ld", flowMilliLitres, pc);
+  snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.0f ml  P:%ld", flowMilliLitres, pc);
 
   if (flowMilliLitres > 0.0005) {
     totalValue = flowMilliLitres * valorMl / 100.0;
@@ -94,7 +94,7 @@ void FlowMeter::calculateFlowV1() {
       servingDisplayFrozen = true;
       httpReportPending = true;
 
-      snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.3f ml  P:%ld", frozenServingMl,
+      snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.0f ml  P:%ld", frozenServingMl,
                frozenSnapshotPulses);
       char msg_out[24];
       snprintf(msg_out, sizeof(msg_out), "R$: %.2f", frozenServingValue);

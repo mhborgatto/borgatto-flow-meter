@@ -24,7 +24,7 @@ extern int comando;
 extern int codCliente;
 extern double totalValue;
 extern double quantidade;
-extern float conversionFactor;
+extern double conversionFactor;
 
 extern volatile uint8_t mqttUiPending;
 
@@ -42,8 +42,16 @@ public:
   static void callback(char *topic, byte *payload, unsigned int length);
   void loop();
 private:
+  bool reconnect();
   WiFiClient wifiClient;
   PubSubClient mqttClient;
+  char _broker[64];
+  uint16_t _port;
+  char _user[32];
+  char _pass[32];
+  char _topic[68];
+  char _topicSet[72];
+  unsigned long _lastReconnectAttempt;
 };
 
 #endif

@@ -46,12 +46,14 @@ void Display::reinit() {
 void Display::healthCheck() {
   unsigned long now = millis();
   if (now - lastSuccessfulWrite > DISPLAY_WATCHDOG_MS) {
-    Serial.printf("[DISPLAY] Watchdog: reinicializando display (falhas I2C consecutivas: %u)\n",
-                  consecutiveI2CFailures);
-    reinit();
-    if (isI2CBusOk()) {
-      Serial.println("[DISPLAY] I2C recuperado com sucesso");
-      consecutiveI2CFailures = 0;
+    if (!isI2CBusOk()) {
+      Serial.printf("[DISPLAY] Watchdog: I2C stuck, reinicializando (falhas consecutivas: %u)\n",
+                    consecutiveI2CFailures);
+      reinit();
+      if (isI2CBusOk()) {
+        Serial.println("[DISPLAY] I2C recuperado com sucesso");
+        consecutiveI2CFailures = 0;
+      }
     }
     lastSuccessfulWrite = now;
   }
