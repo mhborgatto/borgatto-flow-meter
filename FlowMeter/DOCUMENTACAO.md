@@ -14,7 +14,7 @@ O firmware é **white-label**: todas as configurações de marca, broker, tópic
 
 | Pino ESP8266 | Função | Componente |
 |---|---|---|
-| **D1** | Saída digital | Válvula solenóide (via relé/MOSFET). HIGH = fechada, LOW = aberta |
+| **D1** | Saída digital | Válvula solenóide (via relé/MOSFET). HIGH = aberta (fluxo), LOW = fechada — adequado a relés que acionam com nível alto |
 | **D2** | Entrada com pull-up interno | Sensor de fluxo Hall (pulsos em borda de descida) |
 | **D3** (SDA) | I2C Data | Display OLED SSD1306 |
 | **D5** (SCL) | I2C Clock | Display OLED SSD1306 |
@@ -79,7 +79,7 @@ FlowMeter/
 
 ### 3.3 Sequência de Boot
 
-1. Configura pinos (D1 como saída HIGH = válvula fechada, D2 como entrada pull-up)
+1. Configura pinos (D1 como saída LOW = válvula fechada, D2 como entrada pull-up)
 2. Inicializa EEPROM (512 bytes) e Serial (115200 baud)
 3. Imprime motivo do último reset (`ESP.getResetReason()`)
 4. Carrega configuração da EEPROM (`loadConfig()`). Se inválida, carrega defaults e salva

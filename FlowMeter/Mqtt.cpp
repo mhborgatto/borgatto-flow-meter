@@ -66,11 +66,12 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
     return;
   }
 
-  char buf[251];
+  static char buf[251];
   memcpy(buf, payload, length);
   buf[length] = '\0';
 
-  StaticJsonDocument<256> doc;
+  static StaticJsonDocument<256> doc;
+  doc.clear();
   DeserializationError err = deserializeJson(doc, buf);
   if (err) {
     Serial.println();
@@ -111,7 +112,7 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
     enableFlowPulseCounting = false;
     detachInterrupt(digitalPinToInterrupt(sensor));
     servingDisplayFrozen = false;
-    digitalWrite(D1, HIGH);
+    digitalWrite(D1, LOW);
     valveStabilizing = true;
     valveStabilizeStart = millis();
     mqttUiPending = 1;
@@ -122,7 +123,7 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
     enableFlowPulseCounting = true;
     detachInterrupt(digitalPinToInterrupt(sensor));
     servingDisplayFrozen = false;
-    digitalWrite(D1, LOW);
+    digitalWrite(D1, HIGH);
     valveStabilizing = true;
     valveStabilizeStart = millis();
     mqttUiPending = 2;

@@ -74,7 +74,7 @@ static String choppLabel() {
 
 void setup() {
   pinMode(D1, OUTPUT);
-  digitalWrite(D1, HIGH);
+  digitalWrite(D1, LOW);
   pinMode(sensor, INPUT_PULLUP);
 
   EEPROM.begin(512);
@@ -153,12 +153,39 @@ void setup() {
   display.showFilling(textHeader, choppLabel(), "Aguardando", "Liberação");
 }
 
+static long safeReadPulseCount() {
+  noInterrupts();
+  long val = myPulseCount;
+  interrupts();
+  return val;
+}
+
 void loop() {
+  yield();
+
   display.healthCheck();
+
+  if (display.needsRepaint) {
+    display.needsRepaint = false;
+    flowMeter.resetDisplayState();
+    if (servingDisplayFrozen) {
+      mqttUiPending = 0;
+    } else if (enableFlowPulseCounting) {
+      mqttUiPending = 2;
+    } else {
+      mqttUiPending = 1;
+    }
+  }
 
   static unsigned long lastHeapLog = 0;
   if (millis() - lastHeapLog > 30000) {
-    Serial.printf("[HEAP] Free: %u bytes\n", ESP.getFreeHeap());
+    uint32_t freeHeap = ESP.getFreeHeap();
+    Serial.printf("[HEAP] Free: %u bytes\n", freeHeap);
+    if (freeHeap < 4096) {
+      Serial.println("[HEAP] CRITICO: memoria muito baixa, reiniciando...");
+      delay(100);
+      ESP.restart();
+    }
     lastHeapLog = millis();
   }
 
@@ -185,8 +212,10 @@ void loop() {
 
   if (valveStabilizing) {
     if (millis() - valveStabilizeStart >= (unsigned long)config.valveDebounceMs) {
+      noInterrupts();
       pulseCount = 0;
       myPulseCount = 0;
+      interrupts();
       flowMilliLitres = 0;
       totalMilliLitres = 0;
       totalLitres = 0;

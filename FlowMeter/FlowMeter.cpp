@@ -52,9 +52,12 @@ void FlowMeter::calculateFlowV1() {
     return;
   }
 
-  flowMilliLitres = myPulseCount * conversionFactor;
-
+  noInterrupts();
   const long pc = myPulseCount;
+  interrupts();
+
+  flowMilliLitres = pc * conversionFactor;
+
   if (pc != lastDebugLoggedMyPulseCount) {
     lastDebugLoggedMyPulseCount = pc;
     const double mlBruto = static_cast<double>(pc) * static_cast<double>(conversionFactor);
@@ -69,8 +72,7 @@ void FlowMeter::calculateFlowV1() {
   }
 
   char msg_vol_out[32];
-  snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %lu ml  P:%ld", flowMilliLitres,
-           static_cast<long>(myPulseCount));
+  snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %lu ml  P:%ld", flowMilliLitres, pc);
 
   if (flowMilliLitres > 0) {
     totalValue = flowMilliLitres * valorMl / 100.0;
@@ -79,7 +81,7 @@ void FlowMeter::calculateFlowV1() {
     const bool hitQty = (quantidade > 0.0 && flowMilliLitres >= quantidade);
 
     if (hitSaldo || hitQty) {
-      digitalWrite(D1, HIGH);
+      digitalWrite(D1, LOW);
 
       if (hitSaldo) {
         frozenServingValue = saldo;
@@ -88,7 +90,7 @@ void FlowMeter::calculateFlowV1() {
         frozenServingMl = (unsigned long)(quantidade + 0.5);
         frozenServingValue = quantidade * valorMl / 100.0;
       }
-      frozenSnapshotPulses = static_cast<long>(myPulseCount);
+      frozenSnapshotPulses = pc;
       servingDisplayFrozen = true;
       httpReportPending = true;
 
@@ -114,13 +116,13 @@ void FlowMeter::calculateFlowV1() {
     Serial.print(totalValue);
     Serial.print("\t");
     Serial.print("Pulsos: ");
-    Serial.println(myPulseCount);
+    Serial.println(pc);
 
     unsigned long now = millis();
     bool intervalElapsed = (now - lastDisplayMs >= DISPLAY_INTERVAL_MS);
     bool valueChanged = (flowMilliLitres != lastPaintedMl) ||
                         (fabs(totalValue - lastPaintedValue) > 0.01) ||
-                        (static_cast<long>(myPulseCount) != lastPaintedPulses);
+                        (pc != lastPaintedPulses);
     bool shouldPaint =
         intervalElapsed || (valueChanged && (now - lastDisplayMs >= DISPLAY_MIN_MS));
 
@@ -131,12 +133,12 @@ void FlowMeter::calculateFlowV1() {
       lastDisplayMs = now;
       lastPaintedMl = flowMilliLitres;
       lastPaintedValue = totalValue;
-      lastPaintedPulses = static_cast<long>(myPulseCount);
+      lastPaintedPulses = pc;
     }
-  } else if (myPulseCount > 0) {
+  } else if (pc > 0) {
     unsigned long now = millis();
     bool intervalElapsed = (now - lastDisplayMs >= DISPLAY_INTERVAL_MS);
-    bool valueChanged = (static_cast<long>(myPulseCount) != lastPaintedPulses);
+    bool valueChanged = (pc != lastPaintedPulses);
     bool shouldPaint =
         intervalElapsed || (valueChanged && (now - lastDisplayMs >= DISPLAY_MIN_MS));
 
@@ -145,7 +147,7 @@ void FlowMeter::calculateFlowV1() {
       lastDisplayMs = now;
       lastPaintedMl = 0;
       lastPaintedValue = 0.0;
-      lastPaintedPulses = static_cast<long>(myPulseCount);
+      lastPaintedPulses = pc;
     }
   }
 }
