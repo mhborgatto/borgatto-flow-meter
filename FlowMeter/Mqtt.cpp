@@ -99,7 +99,7 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
   codCliente = doc["codCliente"];
   quantidade = doc["quantidade"];
 
-  float recvConv = doc["fatorConversao"] | 0.0f;
+  double recvConv = doc["fatorConversao"] | 0.0;
   if (recvConv > 1e-6) {
     conversionFactor = recvConv;
   }

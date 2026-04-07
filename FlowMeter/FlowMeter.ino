@@ -36,7 +36,7 @@ long previousMillisRequest = 0;
 int interval = 1000;
 int intervalStop = 10000;
 
-unsigned long flowMilliLitres;
+double flowMilliLitres;
 unsigned int totalMilliLitres;
 
 float flowLitres;
@@ -44,7 +44,7 @@ float totalLitres;
 float flowRate;
 float calibrationFactor = 120;
 float requiredVolume = 100;
-float conversionFactor = 3.5f;
+double conversionFactor = 3.5;
 
 double valorMl;
 double saldo;
@@ -57,7 +57,7 @@ double quantidade;
 volatile uint8_t mqttUiPending = 0;
 
 bool servingDisplayFrozen = false;
-unsigned long frozenServingMl = 0;
+double frozenServingMl = 0.0;
 double frozenServingValue = 0.0;
 
 volatile bool valveStabilizing = false;

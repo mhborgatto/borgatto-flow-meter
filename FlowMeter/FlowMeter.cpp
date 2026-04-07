@@ -5,7 +5,7 @@ namespace {
 const unsigned long DISPLAY_INTERVAL_MS = 150;
 const unsigned long DISPLAY_MIN_MS = 50;
 unsigned long lastDisplayMs = 0;
-unsigned long lastPaintedMl = (unsigned long)-1;
+double lastPaintedMl = -1.0;
 double lastPaintedValue = -1.0;
 long lastPaintedPulses = -1;
 long frozenSnapshotPulses = 0;
@@ -18,7 +18,7 @@ static const char* choppName() {
 
 void FlowMeter::resetDisplayState() {
   lastDisplayMs = 0;
-  lastPaintedMl = (unsigned long)-1;
+  lastPaintedMl = -1.0;
   lastPaintedValue = -1.0;
   lastPaintedPulses = -1;
 }
@@ -30,8 +30,8 @@ void ICACHE_RAM_ATTR FlowMeter::pulseCounter() {
 
 void FlowMeter::calculateFlowV1() {
   if (servingDisplayFrozen) {
-    char msg_vol_out[32];
-    snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %lu ml  P:%ld", frozenServingMl,
+    char msg_vol_out[40];
+    snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.3f ml  P:%ld", frozenServingMl,
              frozenSnapshotPulses);
     char msg_out[24];
     snprintf(msg_out, sizeof(msg_out), "R$: %.2f", frozenServingValue);
@@ -39,7 +39,7 @@ void FlowMeter::calculateFlowV1() {
     unsigned long now = millis();
     bool intervalElapsed = (now - lastDisplayMs >= DISPLAY_INTERVAL_MS);
     bool valueChanged =
-        (frozenServingMl != lastPaintedMl) || (fabs(frozenServingValue - lastPaintedValue) > 0.01);
+        (fabs(frozenServingMl - lastPaintedMl) > 0.0005) || (fabs(frozenServingValue - lastPaintedValue) > 0.01);
     bool shouldPaint =
         intervalElapsed || (valueChanged && (now - lastDisplayMs >= DISPLAY_MIN_MS));
 
@@ -56,7 +56,7 @@ void FlowMeter::calculateFlowV1() {
   const long pc = myPulseCount;
   interrupts();
 
-  flowMilliLitres = pc * conversionFactor;
+  flowMilliLitres = round(static_cast<double>(pc) * conversionFactor * 1000.0) / 1000.0;
 
   if (pc != lastDebugLoggedMyPulseCount) {
     lastDebugLoggedMyPulseCount = pc;
@@ -65,16 +65,16 @@ void FlowMeter::calculateFlowV1() {
     Serial.print(pc);
     Serial.print("\tmlPorPulso=");
     Serial.print(conversionFactor, 6);
-    Serial.print("\tmlTrunc=");
-    Serial.print(flowMilliLitres);
+    Serial.print("\tmlRound=");
+    Serial.print(flowMilliLitres, 3);
     Serial.print("\tmlCalc=");
     Serial.println(mlBruto, 4);
   }
 
-  char msg_vol_out[32];
-  snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %lu ml  P:%ld", flowMilliLitres, pc);
+  char msg_vol_out[40];
+  snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.3f ml  P:%ld", flowMilliLitres, pc);
 
-  if (flowMilliLitres > 0) {
+  if (flowMilliLitres > 0.0005) {
     totalValue = flowMilliLitres * valorMl / 100.0;
 
     const bool hitSaldo = (saldo > 0.0 && valorMl > 1e-9 && totalValue >= saldo);
@@ -85,16 +85,16 @@ void FlowMeter::calculateFlowV1() {
 
       if (hitSaldo) {
         frozenServingValue = saldo;
-        frozenServingMl = (unsigned long)(saldo * 100.0 / valorMl + 0.5);
+        frozenServingMl = round(saldo * 100.0 / valorMl * 1000.0) / 1000.0;
       } else {
-        frozenServingMl = (unsigned long)(quantidade + 0.5);
+        frozenServingMl = round(quantidade * 1000.0) / 1000.0;
         frozenServingValue = quantidade * valorMl / 100.0;
       }
       frozenSnapshotPulses = pc;
       servingDisplayFrozen = true;
       httpReportPending = true;
 
-      snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %lu ml  P:%ld", frozenServingMl,
+      snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.3f ml  P:%ld", frozenServingMl,
                frozenSnapshotPulses);
       char msg_out[24];
       snprintf(msg_out, sizeof(msg_out), "R$: %.2f", frozenServingValue);
@@ -107,7 +107,7 @@ void FlowMeter::calculateFlowV1() {
     }
 
     Serial.print("FlowMilliLitres: ");
-    Serial.print(flowMilliLitres);
+    Serial.print(flowMilliLitres, 3);
     Serial.print("\t");
     Serial.print("ValorMl: ");
     Serial.print(valorMl);
@@ -120,7 +120,7 @@ void FlowMeter::calculateFlowV1() {
 
     unsigned long now = millis();
     bool intervalElapsed = (now - lastDisplayMs >= DISPLAY_INTERVAL_MS);
-    bool valueChanged = (flowMilliLitres != lastPaintedMl) ||
+    bool valueChanged = (fabs(flowMilliLitres - lastPaintedMl) > 0.0005) ||
                         (fabs(totalValue - lastPaintedValue) > 0.01) ||
                         (pc != lastPaintedPulses);
     bool shouldPaint =

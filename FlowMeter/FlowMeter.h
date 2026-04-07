@@ -8,16 +8,16 @@
 extern Display display;
 extern volatile byte pulseCount;
 extern volatile long myPulseCount;
-extern unsigned long flowMilliLitres;
+extern double flowMilliLitres;
 extern double totalValue;
 extern double valorMl;
 extern String textHeader;
 extern double saldo;
 extern double quantidade;
-extern float conversionFactor;
+extern double conversionFactor;
 extern String descricao;
 extern bool servingDisplayFrozen;
-extern unsigned long frozenServingMl;
+extern double frozenServingMl;
 extern double frozenServingValue;
 extern bool httpReportPending;
 
