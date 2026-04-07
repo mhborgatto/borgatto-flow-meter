@@ -58,6 +58,10 @@ void FlowMeter::calculateFlowV1() {
 
   flowMilliLitres = round(static_cast<double>(pc) * conversionFactor * 1000.0) / 1000.0;
 
+  if (pc > 0) {
+    lastFlowActivityMs = millis();
+  }
+
   if (pc != lastDebugLoggedMyPulseCount) {
     lastDebugLoggedMyPulseCount = pc;
     const double mlBruto = static_cast<double>(pc) * static_cast<double>(conversionFactor);

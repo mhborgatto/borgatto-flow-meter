@@ -146,10 +146,12 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
     conversionFactor = recvConv;
   }
 
+  tempoTorneira = doc["tempoTorneira"] | 0UL;
+
   Serial.println();
   Serial.println("-----------------------");
-  Serial.printf("[MQTT] comando=%d  valorMl=%.4f  saldo=%.2f  quantidade=%.2f  codCliente=%d\n",
-                comando, valorMl, saldo, quantidade, codCliente);
+  Serial.printf("[MQTT] comando=%d  valorMl=%.4f  saldo=%.2f  quantidade=%.2f  codCliente=%d  tempoTorneira=%lus\n",
+                comando, valorMl, saldo, quantidade, codCliente, tempoTorneira);
 
   if (comando == 0) {
     Serial.println("[MQTT] Comando 0: desligando válvula");
@@ -168,6 +170,7 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
     digitalWrite(D1, HIGH);
     valveStabilizing = true;
     valveStabilizeStart = millis();
+    lastFlowActivityMs = millis();
     mqttUiPending = 2;
   } else {
     Serial.printf("[MQTT] Comando %d ignorado (somente 0 e 1 são tratados)\n", comando);

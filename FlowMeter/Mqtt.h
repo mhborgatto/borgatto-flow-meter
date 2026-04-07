@@ -33,6 +33,8 @@ extern unsigned long valveStabilizeStart;
 extern volatile bool enableFlowPulseCounting;
 
 extern bool servingDisplayFrozen;
+extern unsigned long tempoTorneira;
+extern unsigned long lastFlowActivityMs;
 
 class Mqtt {
 public:

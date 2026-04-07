@@ -68,6 +68,9 @@ volatile bool enableFlowPulseCounting = false;
 
 bool httpReportPending = false;
 
+unsigned long tempoTorneira = 0;
+unsigned long lastFlowActivityMs = 0;
+
 static String choppLabel() {
   return descricao.length() > 0 ? descricao : String("Chopp");
 }
@@ -225,10 +228,31 @@ void loop() {
       flowMeter.resetDisplayState();
       if (enableFlowPulseCounting) {
         attachInterrupt(digitalPinToInterrupt(sensor), flowMeter.pulseCounter, FALLING);
+        lastFlowActivityMs = millis();
       } else {
         detachInterrupt(digitalPinToInterrupt(sensor));
       }
       valveStabilizing = false;
+    }
+    return;
+  }
+
+  if (enableFlowPulseCounting && tempoTorneira > 0 &&
+      millis() - lastFlowActivityMs >= tempoTorneira * 1000UL) {
+    Serial.printf("[TIMEOUT] tempoTorneira=%lus expirou. flowMl=%.3f\n",
+                  tempoTorneira, flowMilliLitres);
+    digitalWrite(D1, LOW);
+    detachInterrupt(digitalPinToInterrupt(sensor));
+    enableFlowPulseCounting = false;
+
+    if (flowMilliLitres > 0.0005) {
+      totalValue = flowMilliLitres * valorMl / 100.0;
+      frozenServingMl = flowMilliLitres;
+      frozenServingValue = totalValue;
+      servingDisplayFrozen = true;
+      httpReportPending = true;
+    } else {
+      mqttUiPending = 1;
     }
     return;
   }
