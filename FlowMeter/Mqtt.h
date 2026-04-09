@@ -32,6 +32,10 @@ extern volatile bool valveStabilizing;
 extern unsigned long valveStabilizeStart;
 extern volatile bool enableFlowPulseCounting;
 
+extern int pumpPin;
+extern volatile bool pumpPreStartActive;
+extern unsigned long pumpPreStartBegin;
+
 extern bool servingDisplayFrozen;
 extern unsigned long tempoTorneira;
 extern unsigned long lastFlowActivityMs;

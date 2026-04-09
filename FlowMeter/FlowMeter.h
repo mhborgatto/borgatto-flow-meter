@@ -19,6 +19,7 @@ extern String descricao;
 extern bool servingDisplayFrozen;
 extern double frozenServingMl;
 extern double frozenServingValue;
+extern int pumpPin;
 extern bool httpReportPending;
 extern unsigned long tempoTorneira;
 extern unsigned long lastFlowActivityMs;

@@ -18,6 +18,10 @@ FlowMeter flowMeter;
 
 String textHeader;
 int sensor = D2;
+int pumpPin = D6;
+
+/** Tempo (ms) que a bomba fica ligada antes de abrir a válvula solenóide. */
+#define PUMP_PRE_START_MS 200
 
 char mqttTopic[68];
 char mqttTopicSet[72];
@@ -63,6 +67,9 @@ double frozenServingValue = 0.0;
 volatile bool valveStabilizing = false;
 unsigned long valveStabilizeStart = 0;
 
+volatile bool pumpPreStartActive = false;
+unsigned long pumpPreStartBegin = 0;
+
 /** Só contabiliza pulsos do medidor após comando MQTT 1 (válvula liberada). */
 volatile bool enableFlowPulseCounting = false;
 
@@ -78,6 +85,8 @@ static String choppLabel() {
 void setup() {
   pinMode(D1, OUTPUT);
   digitalWrite(D1, LOW);
+  pinMode(pumpPin, OUTPUT);
+  digitalWrite(pumpPin, LOW);
   pinMode(sensor, INPUT_PULLUP);
 
   EEPROM.begin(512);
@@ -213,6 +222,17 @@ void loop() {
     httpReportPending = false;
   }
 
+  if (pumpPreStartActive) {
+    if (millis() - pumpPreStartBegin >= PUMP_PRE_START_MS) {
+      digitalWrite(D1, HIGH);
+      valveStabilizing = true;
+      valveStabilizeStart = millis();
+      pumpPreStartActive = false;
+      Serial.println("[PUMP] Pre-start concluído, válvula aberta");
+    }
+    return;
+  }
+
   if (valveStabilizing) {
     if (millis() - valveStabilizeStart >= (unsigned long)config.valveDebounceMs) {
       noInterrupts();
@@ -242,6 +262,7 @@ void loop() {
     Serial.printf("[TIMEOUT] tempoTorneira=%lus expirou. flowMl=%.3f\n",
                   tempoTorneira, flowMilliLitres);
     digitalWrite(D1, LOW);
+    digitalWrite(pumpPin, LOW);
     detachInterrupt(digitalPinToInterrupt(sensor));
     enableFlowPulseCounting = false;
 

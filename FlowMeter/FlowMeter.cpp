@@ -89,6 +89,7 @@ void FlowMeter::calculateFlowV1() {
 
     if (hitSaldo || hitQty) {
       digitalWrite(D1, LOW);
+      digitalWrite(pumpPin, LOW);
 
       if (hitSaldo) {
         frozenServingValue = saldo;

@@ -154,22 +154,24 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
                 comando, valorMl, saldo, quantidade, codCliente, tempoTorneira);
 
   if (comando == 0) {
-    Serial.println("[MQTT] Comando 0: desligando válvula");
+    Serial.println("[MQTT] Comando 0: desligando válvula e bomba");
     enableFlowPulseCounting = false;
+    pumpPreStartActive = false;
     detachInterrupt(digitalPinToInterrupt(sensor));
     servingDisplayFrozen = false;
     digitalWrite(D1, LOW);
+    digitalWrite(pumpPin, LOW);
     valveStabilizing = true;
     valveStabilizeStart = millis();
     mqttUiPending = 1;
   } else if (comando == 1) {
-    Serial.println("[MQTT] Comando 1: ligando válvula");
+    Serial.println("[MQTT] Comando 1: ligando bomba (pré-start), válvula abrirá em seguida");
     enableFlowPulseCounting = true;
     detachInterrupt(digitalPinToInterrupt(sensor));
     servingDisplayFrozen = false;
-    digitalWrite(D1, HIGH);
-    valveStabilizing = true;
-    valveStabilizeStart = millis();
+    digitalWrite(pumpPin, HIGH);
+    pumpPreStartActive = true;
+    pumpPreStartBegin = millis();
     lastFlowActivityMs = millis();
     mqttUiPending = 2;
   } else {
