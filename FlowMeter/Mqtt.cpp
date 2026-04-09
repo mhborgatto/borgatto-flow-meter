@@ -6,19 +6,33 @@
 extern FlowMeter flowMeter;
 
 Mqtt::Mqtt()
-  : mqttClient(wifiClient) {}
+  : mqttClient(wifiClient), _port(0), _lastReconnectAttempt(0) {
+  _broker[0] = '\0';
+  _user[0] = '\0';
+  _pass[0] = '\0';
+  _topic[0] = '\0';
+  _topicSet[0] = '\0';
+}
 
 bool Mqtt::connect(const char *mqtt_broker, int mqtt_port, const char *mqtt_username, const char *mqtt_password, const char *topic, const char *topicSet) {
   Serial.println("Inicio Conectando ao broker mqtt");
-  byte tentativa = 0;
-  mqttClient.setServer(mqtt_broker, mqtt_port);
+
+  strncpy(_broker, mqtt_broker, sizeof(_broker) - 1);  _broker[sizeof(_broker) - 1] = '\0';
+  _port = mqtt_port;
+  strncpy(_user, mqtt_username, sizeof(_user) - 1);     _user[sizeof(_user) - 1] = '\0';
+  strncpy(_pass, mqtt_password, sizeof(_pass) - 1);     _pass[sizeof(_pass) - 1] = '\0';
+  strncpy(_topic, topic, sizeof(_topic) - 1);            _topic[sizeof(_topic) - 1] = '\0';
+  strncpy(_topicSet, topicSet, sizeof(_topicSet) - 1);   _topicSet[sizeof(_topicSet) - 1] = '\0';
+
+  mqttClient.setServer(_broker, _port);
   mqttClient.setCallback(Mqtt::callback);
 
+  byte tentativa = 0;
   do {
     String client_id = "FlowMeter-";
     client_id += String(WiFi.macAddress());
 
-    if (mqttClient.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
+    if (mqttClient.connect(client_id.c_str(), _user, _pass)) {
       Serial.println("Exito na conexão:");
       Serial.printf("Cliente %s conectado ao broker\n", client_id.c_str());
     } else {
@@ -33,10 +47,11 @@ bool Mqtt::connect(const char *mqtt_broker, int mqtt_port, const char *mqtt_user
   } while (!mqttClient.connected() && tentativa < 5);
 
   if (tentativa < 5) {
-    mqttClient.publish(topic, "OK");
-    mqttClient.subscribe(topic);
-    mqttClient.publish(topicSet, "0");
-    mqttClient.subscribe(topicSet);
+    mqttClient.publish(_topic, "OK");
+    mqttClient.subscribe(_topic);
+    mqttClient.publish(_topicSet, "0");
+    mqttClient.subscribe(_topicSet);
+    _lastReconnectAttempt = 0;
     return 1;
   } else {
     Serial.println("Não conectado ao broker");
@@ -44,7 +59,34 @@ bool Mqtt::connect(const char *mqtt_broker, int mqtt_port, const char *mqtt_user
   }
 }
 
+bool Mqtt::reconnect() {
+  String client_id = "FlowMeter-";
+  client_id += String(WiFi.macAddress());
+
+  Serial.printf("[MQTT] Reconectando ao broker %s:%u ...\n", _broker, _port);
+
+  if (mqttClient.connect(client_id.c_str(), _user, _pass)) {
+    Serial.println("[MQTT] Reconectado com sucesso");
+    mqttClient.subscribe(_topic);
+    mqttClient.subscribe(_topicSet);
+    return true;
+  }
+
+  Serial.printf("[MQTT] Falha ao reconectar (state=%d)\n", mqttClient.state());
+  return false;
+}
+
 void Mqtt::loop() {
+  if (!mqttClient.connected()) {
+    unsigned long now = millis();
+    if (now - _lastReconnectAttempt >= 5000) {
+      _lastReconnectAttempt = now;
+      if (reconnect()) {
+        _lastReconnectAttempt = 0;
+      }
+    }
+    return;
+  }
   mqttClient.loop();
 }
 
@@ -66,11 +108,12 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
     return;
   }
 
-  char buf[251];
+  static char buf[251];
   memcpy(buf, payload, length);
   buf[length] = '\0';
 
-  StaticJsonDocument<256> doc;
+  static StaticJsonDocument<256> doc;
+  doc.clear();
   DeserializationError err = deserializeJson(doc, buf);
   if (err) {
     Serial.println();
@@ -98,33 +141,40 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
   codCliente = doc["codCliente"];
   quantidade = doc["quantidade"];
 
-  float recvConv = doc["fatorConversao"] | 0.0f;
+  double recvConv = doc["fatorConversao"] | 0.0;
   if (recvConv > 1e-6) {
     conversionFactor = recvConv;
   }
 
+  tempoTorneira = doc["tempoTorneira"] | 0UL;
+
   Serial.println();
   Serial.println("-----------------------");
+  Serial.printf("[MQTT] comando=%d  valorMl=%.4f  saldo=%.2f  quantidade=%.2f  codCliente=%d  tempoTorneira=%lus\n",
+                comando, valorMl, saldo, quantidade, codCliente, tempoTorneira);
 
   if (comando == 0) {
-    Serial.println("Desacione o Pino");
+    Serial.println("[MQTT] Comando 0: desligando válvula e bomba");
     enableFlowPulseCounting = false;
-    detachInterrupt(digitalPinToInterrupt(sensor));
-    servingDisplayFrozen = false;
-    digitalWrite(D1, HIGH);
-    valveStabilizing = true;
-    valveStabilizeStart = millis();
-    mqttUiPending = 1;
-  }
-
-  if (comando == 1) {
-    Serial.println("Acione o Pino");
-    enableFlowPulseCounting = true;
+    pumpPreStartActive = false;
     detachInterrupt(digitalPinToInterrupt(sensor));
     servingDisplayFrozen = false;
     digitalWrite(D1, LOW);
+    digitalWrite(pumpPin, LOW);
     valveStabilizing = true;
     valveStabilizeStart = millis();
+    mqttUiPending = 1;
+  } else if (comando == 1) {
+    Serial.println("[MQTT] Comando 1: ligando bomba (pré-start), válvula abrirá em seguida");
+    enableFlowPulseCounting = true;
+    detachInterrupt(digitalPinToInterrupt(sensor));
+    servingDisplayFrozen = false;
+    digitalWrite(pumpPin, HIGH);
+    pumpPreStartActive = true;
+    pumpPreStartBegin = millis();
+    lastFlowActivityMs = millis();
     mqttUiPending = 2;
+  } else {
+    Serial.printf("[MQTT] Comando %d ignorado (somente 0 e 1 são tratados)\n", comando);
   }
 }

@@ -18,6 +18,10 @@ FlowMeter flowMeter;
 
 String textHeader;
 int sensor = D2;
+int pumpPin = D6;
+
+/** Tempo (ms) que a bomba fica ligada antes de abrir a válvula solenóide. */
+#define PUMP_PRE_START_MS 200
 
 char mqttTopic[68];
 char mqttTopicSet[72];
@@ -36,7 +40,7 @@ long previousMillisRequest = 0;
 int interval = 1000;
 int intervalStop = 10000;
 
-unsigned long flowMilliLitres;
+double flowMilliLitres;
 unsigned int totalMilliLitres;
 
 float flowLitres;
@@ -44,7 +48,7 @@ float totalLitres;
 float flowRate;
 float calibrationFactor = 120;
 float requiredVolume = 100;
-float conversionFactor = 3.5f;
+double conversionFactor = 3.5;
 
 double valorMl;
 double saldo;
@@ -57,16 +61,22 @@ double quantidade;
 volatile uint8_t mqttUiPending = 0;
 
 bool servingDisplayFrozen = false;
-unsigned long frozenServingMl = 0;
+double frozenServingMl = 0.0;
 double frozenServingValue = 0.0;
 
 volatile bool valveStabilizing = false;
 unsigned long valveStabilizeStart = 0;
 
+volatile bool pumpPreStartActive = false;
+unsigned long pumpPreStartBegin = 0;
+
 /** Só contabiliza pulsos do medidor após comando MQTT 1 (válvula liberada). */
 volatile bool enableFlowPulseCounting = false;
 
 bool httpReportPending = false;
+
+unsigned long tempoTorneira = 0;
+unsigned long lastFlowActivityMs = 0;
 
 static String choppLabel() {
   return descricao.length() > 0 ? descricao : String("Chopp");
@@ -74,7 +84,9 @@ static String choppLabel() {
 
 void setup() {
   pinMode(D1, OUTPUT);
-  digitalWrite(D1, HIGH);
+  digitalWrite(D1, LOW);
+  pinMode(pumpPin, OUTPUT);
+  digitalWrite(pumpPin, LOW);
   pinMode(sensor, INPUT_PULLUP);
 
   EEPROM.begin(512);
@@ -153,7 +165,42 @@ void setup() {
   display.showFilling(textHeader, choppLabel(), "Aguardando", "Liberação");
 }
 
+static long safeReadPulseCount() {
+  noInterrupts();
+  long val = myPulseCount;
+  interrupts();
+  return val;
+}
+
 void loop() {
+  yield();
+
+  display.healthCheck();
+
+  if (display.needsRepaint) {
+    display.needsRepaint = false;
+    flowMeter.resetDisplayState();
+    if (servingDisplayFrozen) {
+      mqttUiPending = 0;
+    } else if (enableFlowPulseCounting) {
+      mqttUiPending = 2;
+    } else {
+      mqttUiPending = 1;
+    }
+  }
+
+  static unsigned long lastHeapLog = 0;
+  if (millis() - lastHeapLog > 30000) {
+    uint32_t freeHeap = ESP.getFreeHeap();
+    Serial.printf("[HEAP] Free: %u bytes\n", freeHeap);
+    if (freeHeap < 4096) {
+      Serial.println("[HEAP] CRITICO: memoria muito baixa, reiniciando...");
+      delay(100);
+      ESP.restart();
+    }
+    lastHeapLog = millis();
+  }
+
   if (mqttStatus) {
     mqtt.loop();
   }
@@ -175,10 +222,23 @@ void loop() {
     httpReportPending = false;
   }
 
+  if (pumpPreStartActive) {
+    if (millis() - pumpPreStartBegin >= PUMP_PRE_START_MS) {
+      digitalWrite(D1, HIGH);
+      valveStabilizing = true;
+      valveStabilizeStart = millis();
+      pumpPreStartActive = false;
+      Serial.println("[PUMP] Pre-start concluído, válvula aberta");
+    }
+    return;
+  }
+
   if (valveStabilizing) {
     if (millis() - valveStabilizeStart >= (unsigned long)config.valveDebounceMs) {
+      noInterrupts();
       pulseCount = 0;
       myPulseCount = 0;
+      interrupts();
       flowMilliLitres = 0;
       totalMilliLitres = 0;
       totalLitres = 0;
@@ -188,10 +248,32 @@ void loop() {
       flowMeter.resetDisplayState();
       if (enableFlowPulseCounting) {
         attachInterrupt(digitalPinToInterrupt(sensor), flowMeter.pulseCounter, FALLING);
+        lastFlowActivityMs = millis();
       } else {
         detachInterrupt(digitalPinToInterrupt(sensor));
       }
       valveStabilizing = false;
+    }
+    return;
+  }
+
+  if (enableFlowPulseCounting && tempoTorneira > 0 &&
+      millis() - lastFlowActivityMs >= tempoTorneira * 1000UL) {
+    Serial.printf("[TIMEOUT] tempoTorneira=%lus expirou. flowMl=%.3f\n",
+                  tempoTorneira, flowMilliLitres);
+    digitalWrite(D1, LOW);
+    digitalWrite(pumpPin, LOW);
+    detachInterrupt(digitalPinToInterrupt(sensor));
+    enableFlowPulseCounting = false;
+
+    if (flowMilliLitres > 0.0005) {
+      totalValue = flowMilliLitres * valorMl / 100.0;
+      frozenServingMl = flowMilliLitres;
+      frozenServingValue = totalValue;
+      servingDisplayFrozen = true;
+      httpReportPending = true;
+    } else {
+      mqttUiPending = 1;
     }
     return;
   }

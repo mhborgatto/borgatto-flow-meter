@@ -2,15 +2,16 @@
 #include "Config.h"
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
+#include <cstdlib>
 
 static const char *const kWebAdminUser = "admin";
 static const char *const kWebAdminPass = "ADMBORGATTO";
 
-extern unsigned long flowMilliLitres;
+extern double flowMilliLitres;
 extern double totalValue;
 extern String descricao;
 extern int codCliente;
-extern float conversionFactor;
+extern double conversionFactor;
 
 String WebServer::buildConfigPage() {
   String html = F("<!DOCTYPE html><html><head>"
@@ -90,7 +91,7 @@ String WebServer::buildConfigPage() {
   html += F("<div class='s'><h2>Calibração</h2>");
   html += F("<label>Fator de Conversão Padrão</label>");
   html += F("<input type='text' name='defaultConvFactor' value='");
-  html += String(config.defaultConvFactor, 4);
+  html += String(config.defaultConvFactor, 8);
   html += F("'>");
   html += F("<label>Debounce da Válvula (ms)</label>");
   html += F("<input type='number' name='valveDebounceMs' value='");
@@ -163,7 +164,7 @@ void WebServer::handleConfig() {
     config.mqttPort = server.arg("mqttPort").toInt();
   }
   if (server.hasArg("defaultConvFactor")) {
-    config.defaultConvFactor = server.arg("defaultConvFactor").toFloat();
+    config.defaultConvFactor = atof(server.arg("defaultConvFactor").c_str());
   }
   if (server.hasArg("valveDebounceMs")) {
     config.valveDebounceMs = server.arg("valveDebounceMs").toInt();

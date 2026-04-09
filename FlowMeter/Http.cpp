@@ -4,10 +4,10 @@
 
 extern String descricao;
 extern int codCliente;
-extern unsigned long flowMilliLitres;
+extern double flowMilliLitres;
 extern double totalValue;
 extern bool servingDisplayFrozen;
-extern unsigned long frozenServingMl;
+extern double frozenServingMl;
 extern double frozenServingValue;
 
 void Http::sendReport() {
@@ -24,7 +24,7 @@ void Http::sendReport() {
   http.addHeader("Content-Type", "application/json");
   http.setTimeout(5000);
 
-  unsigned long reportMl = servingDisplayFrozen ? frozenServingMl : flowMilliLitres;
+  double reportMl = servingDisplayFrozen ? frozenServingMl : flowMilliLitres;
   double reportVal = servingDisplayFrozen ? frozenServingValue : totalValue;
 
   StaticJsonDocument<256> doc;

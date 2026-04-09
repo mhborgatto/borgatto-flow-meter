@@ -19,7 +19,7 @@ struct DeviceConfig {
   char     mqttTopicBase[64];
   char     webhookUrl[128];
   char     deviceToken[64];
-  float    defaultConvFactor;
+  double   defaultConvFactor;
   uint16_t valveDebounceMs;
   /** Linha superior do OLED; se vazio, usa-se `brandName`. */
   char     oledTitle[32];

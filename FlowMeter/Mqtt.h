@@ -24,7 +24,7 @@ extern int comando;
 extern int codCliente;
 extern double totalValue;
 extern double quantidade;
-extern float conversionFactor;
+extern double conversionFactor;
 
 extern volatile uint8_t mqttUiPending;
 
@@ -32,7 +32,13 @@ extern volatile bool valveStabilizing;
 extern unsigned long valveStabilizeStart;
 extern volatile bool enableFlowPulseCounting;
 
+extern int pumpPin;
+extern volatile bool pumpPreStartActive;
+extern unsigned long pumpPreStartBegin;
+
 extern bool servingDisplayFrozen;
+extern unsigned long tempoTorneira;
+extern unsigned long lastFlowActivityMs;
 
 class Mqtt {
 public:
@@ -42,8 +48,16 @@ public:
   static void callback(char *topic, byte *payload, unsigned int length);
   void loop();
 private:
+  bool reconnect();
   WiFiClient wifiClient;
   PubSubClient mqttClient;
+  char _broker[64];
+  uint16_t _port;
+  char _user[32];
+  char _pass[32];
+  char _topic[68];
+  char _topicSet[72];
+  unsigned long _lastReconnectAttempt;
 };
 
 #endif

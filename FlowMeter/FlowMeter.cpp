@@ -5,11 +5,12 @@ namespace {
 const unsigned long DISPLAY_INTERVAL_MS = 150;
 const unsigned long DISPLAY_MIN_MS = 50;
 unsigned long lastDisplayMs = 0;
-unsigned long lastPaintedMl = (unsigned long)-1;
+double lastPaintedMl = -1.0;
 double lastPaintedValue = -1.0;
 long lastPaintedPulses = -1;
 long frozenSnapshotPulses = 0;
 long lastDebugLoggedMyPulseCount = 0;
+long lastActivityPulseCount = 0;
 }  // namespace
 
 static const char* choppName() {
@@ -18,9 +19,10 @@ static const char* choppName() {
 
 void FlowMeter::resetDisplayState() {
   lastDisplayMs = 0;
-  lastPaintedMl = (unsigned long)-1;
+  lastPaintedMl = -1.0;
   lastPaintedValue = -1.0;
   lastPaintedPulses = -1;
+  lastActivityPulseCount = 0;
 }
 
 void ICACHE_RAM_ATTR FlowMeter::pulseCounter() {
@@ -30,8 +32,8 @@ void ICACHE_RAM_ATTR FlowMeter::pulseCounter() {
 
 void FlowMeter::calculateFlowV1() {
   if (servingDisplayFrozen) {
-    char msg_vol_out[32];
-    snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %lu ml  P:%ld", frozenServingMl,
+    char msg_vol_out[40];
+    snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.0f ml  P:%ld", frozenServingMl,
              frozenSnapshotPulses);
     char msg_out[24];
     snprintf(msg_out, sizeof(msg_out), "R$: %.2f", frozenServingValue);
@@ -39,7 +41,7 @@ void FlowMeter::calculateFlowV1() {
     unsigned long now = millis();
     bool intervalElapsed = (now - lastDisplayMs >= DISPLAY_INTERVAL_MS);
     bool valueChanged =
-        (frozenServingMl != lastPaintedMl) || (fabs(frozenServingValue - lastPaintedValue) > 0.01);
+        (fabs(frozenServingMl - lastPaintedMl) > 0.0005) || (fabs(frozenServingValue - lastPaintedValue) > 0.01);
     bool shouldPaint =
         intervalElapsed || (valueChanged && (now - lastDisplayMs >= DISPLAY_MIN_MS));
 
@@ -52,9 +54,17 @@ void FlowMeter::calculateFlowV1() {
     return;
   }
 
-  flowMilliLitres = myPulseCount * conversionFactor;
-
+  noInterrupts();
   const long pc = myPulseCount;
+  interrupts();
+
+  flowMilliLitres = round(static_cast<double>(pc) * conversionFactor * 1000.0) / 1000.0;
+
+  if (pc > 0 && pc != lastActivityPulseCount) {
+    lastFlowActivityMs = millis();
+    lastActivityPulseCount = pc;
+  }
+
   if (pc != lastDebugLoggedMyPulseCount) {
     lastDebugLoggedMyPulseCount = pc;
     const double mlBruto = static_cast<double>(pc) * static_cast<double>(conversionFactor);
@@ -62,37 +72,37 @@ void FlowMeter::calculateFlowV1() {
     Serial.print(pc);
     Serial.print("\tmlPorPulso=");
     Serial.print(conversionFactor, 6);
-    Serial.print("\tmlTrunc=");
-    Serial.print(flowMilliLitres);
+    Serial.print("\tmlRound=");
+    Serial.print(flowMilliLitres, 3);
     Serial.print("\tmlCalc=");
     Serial.println(mlBruto, 4);
   }
 
-  char msg_vol_out[32];
-  snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %lu ml  P:%ld", flowMilliLitres,
-           static_cast<long>(myPulseCount));
+  char msg_vol_out[40];
+  snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.0f ml  P:%ld", flowMilliLitres, pc);
 
-  if (flowMilliLitres > 0) {
+  if (flowMilliLitres > 0.0005) {
     totalValue = flowMilliLitres * valorMl / 100.0;
 
     const bool hitSaldo = (saldo > 0.0 && valorMl > 1e-9 && totalValue >= saldo);
     const bool hitQty = (quantidade > 0.0 && flowMilliLitres >= quantidade);
 
     if (hitSaldo || hitQty) {
-      digitalWrite(D1, HIGH);
+      digitalWrite(D1, LOW);
+      digitalWrite(pumpPin, LOW);
 
       if (hitSaldo) {
         frozenServingValue = saldo;
-        frozenServingMl = (unsigned long)(saldo * 100.0 / valorMl + 0.5);
+        frozenServingMl = round(saldo * 100.0 / valorMl * 1000.0) / 1000.0;
       } else {
-        frozenServingMl = (unsigned long)(quantidade + 0.5);
+        frozenServingMl = round(quantidade * 1000.0) / 1000.0;
         frozenServingValue = quantidade * valorMl / 100.0;
       }
-      frozenSnapshotPulses = static_cast<long>(myPulseCount);
+      frozenSnapshotPulses = pc;
       servingDisplayFrozen = true;
       httpReportPending = true;
 
-      snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %lu ml  P:%ld", frozenServingMl,
+      snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.0f ml  P:%ld", frozenServingMl,
                frozenSnapshotPulses);
       char msg_out[24];
       snprintf(msg_out, sizeof(msg_out), "R$: %.2f", frozenServingValue);
@@ -105,7 +115,7 @@ void FlowMeter::calculateFlowV1() {
     }
 
     Serial.print("FlowMilliLitres: ");
-    Serial.print(flowMilliLitres);
+    Serial.print(flowMilliLitres, 3);
     Serial.print("\t");
     Serial.print("ValorMl: ");
     Serial.print(valorMl);
@@ -114,13 +124,13 @@ void FlowMeter::calculateFlowV1() {
     Serial.print(totalValue);
     Serial.print("\t");
     Serial.print("Pulsos: ");
-    Serial.println(myPulseCount);
+    Serial.println(pc);
 
     unsigned long now = millis();
     bool intervalElapsed = (now - lastDisplayMs >= DISPLAY_INTERVAL_MS);
-    bool valueChanged = (flowMilliLitres != lastPaintedMl) ||
+    bool valueChanged = (fabs(flowMilliLitres - lastPaintedMl) > 0.0005) ||
                         (fabs(totalValue - lastPaintedValue) > 0.01) ||
-                        (static_cast<long>(myPulseCount) != lastPaintedPulses);
+                        (pc != lastPaintedPulses);
     bool shouldPaint =
         intervalElapsed || (valueChanged && (now - lastDisplayMs >= DISPLAY_MIN_MS));
 
@@ -131,12 +141,12 @@ void FlowMeter::calculateFlowV1() {
       lastDisplayMs = now;
       lastPaintedMl = flowMilliLitres;
       lastPaintedValue = totalValue;
-      lastPaintedPulses = static_cast<long>(myPulseCount);
+      lastPaintedPulses = pc;
     }
-  } else if (myPulseCount > 0) {
+  } else if (pc > 0) {
     unsigned long now = millis();
     bool intervalElapsed = (now - lastDisplayMs >= DISPLAY_INTERVAL_MS);
-    bool valueChanged = (static_cast<long>(myPulseCount) != lastPaintedPulses);
+    bool valueChanged = (pc != lastPaintedPulses);
     bool shouldPaint =
         intervalElapsed || (valueChanged && (now - lastDisplayMs >= DISPLAY_MIN_MS));
 
@@ -145,7 +155,7 @@ void FlowMeter::calculateFlowV1() {
       lastDisplayMs = now;
       lastPaintedMl = 0;
       lastPaintedValue = 0.0;
-      lastPaintedPulses = static_cast<long>(myPulseCount);
+      lastPaintedPulses = pc;
     }
   }
 }
