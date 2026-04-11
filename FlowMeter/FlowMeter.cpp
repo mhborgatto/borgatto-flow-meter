@@ -53,7 +53,17 @@ void FlowMeter::calculateFlowV1() {
         intervalElapsed || (valueChanged && (now - lastDisplayMs >= DISPLAY_MIN_MS));
 
     if (shouldPaint) {
-      display.showFilling(textHeader, "Concluído", msg_vol_out, msg_out);
+      if (modoDesenvolvimento) {
+        char d1[22]; snprintf(d1, sizeof(d1), "%s [DONE]", choppName());
+        char d2[22]; snprintf(d2, sizeof(d2), "V:%.0fml P:%ld", frozenServingMl, frozenSnapshotPulses);
+        char d3[22]; snprintf(d3, sizeof(d3), "R$:%.2f", frozenServingValue);
+        char d4[22]; snprintf(d4, sizeof(d4), "F:%.4f", conversionFactor);
+        char d5[22]; snprintf(d5, sizeof(d5), "Ofs:%.1f Int:%lu", offsetResidualMl, intervaloPulsoMinUs);
+        char d6[22]; snprintf(d6, sizeof(d6), "Cli:%d Sld:%.1f", codCliente, saldo);
+        display.showDebugFilling(d1, d2, d3, d4, d5, d6);
+      } else {
+        display.showFilling(textHeader, "Concluído", msg_vol_out, msg_out);
+      }
       lastDisplayMs = now;
       lastPaintedMl = frozenServingMl;
       lastPaintedValue = frozenServingValue;
@@ -135,7 +145,17 @@ void FlowMeter::calculateFlowV1() {
                frozenSnapshotPulses);
       char msg_out[24];
       snprintf(msg_out, sizeof(msg_out), "R$: %.2f", frozenServingValue);
-      display.showFilling(textHeader, "Concluído", msg_vol_out, msg_out);
+      if (modoDesenvolvimento) {
+        char d1[22]; snprintf(d1, sizeof(d1), "%s [DONE]", choppName());
+        char d2[22]; snprintf(d2, sizeof(d2), "V:%.0fml P:%ld", frozenServingMl, frozenSnapshotPulses);
+        char d3[22]; snprintf(d3, sizeof(d3), "R$:%.2f vMl:%.2f", frozenServingValue, valorMl);
+        char d4[22]; snprintf(d4, sizeof(d4), "F:%.4f", conversionFactor);
+        char d5[22]; snprintf(d5, sizeof(d5), "Ofs:%.1f Int:%lu", offsetResidualMl, intervaloPulsoMinUs);
+        char d6[22]; snprintf(d6, sizeof(d6), "Real:%.0fml %s", flowMilliLitres, hitSaldo ? "$" : "Q");
+        display.showDebugFilling(d1, d2, d3, d4, d5, d6);
+      } else {
+        display.showFilling(textHeader, "Concluído", msg_vol_out, msg_out);
+      }
       lastDisplayMs = millis();
       lastPaintedMl = frozenServingMl;
       lastPaintedValue = frozenServingValue;
@@ -166,7 +186,17 @@ void FlowMeter::calculateFlowV1() {
     if (shouldPaint) {
       char msg_out[24];
       snprintf(msg_out, sizeof(msg_out), "R$: %.2f", totalValue);
-      display.showFilling(textHeader, choppName(), msg_vol_out, msg_out);
+      if (modoDesenvolvimento) {
+        char d1[22]; snprintf(d1, sizeof(d1), "%s", choppName());
+        char d2[22]; snprintf(d2, sizeof(d2), "V:%.0fml P:%ld", flowMilliLitres, pc);
+        char d3[22]; snprintf(d3, sizeof(d3), "R$:%.2f vMl:%.2f", totalValue, valorMl);
+        char d4[22]; snprintf(d4, sizeof(d4), "F:%.4f S:%.1f", conversionFactor, saldo);
+        char d5[22]; snprintf(d5, sizeof(d5), "Qty:%.0f Ofs:%.1f", quantidade, offsetResidualMl);
+        char d6[22]; snprintf(d6, sizeof(d6), "Cli:%d T:%lus", codCliente, tempoTorneira);
+        display.showDebugFilling(d1, d2, d3, d4, d5, d6);
+      } else {
+        display.showFilling(textHeader, choppName(), msg_vol_out, msg_out);
+      }
       lastDisplayMs = now;
       lastPaintedMl = flowMilliLitres;
       lastPaintedValue = totalValue;

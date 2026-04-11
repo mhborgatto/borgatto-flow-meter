@@ -11,6 +11,8 @@ class Display {
     void begin();
     void showWelcome(const String &line1, const String &line2, const String &line3, const String &line4);
     void showFilling(const String &line1, const String &line2, const String &line3, const String &line4);
+    void showDebugFilling(const String &line1, const String &line2, const String &line3,
+                          const String &line4, const String &line5, const String &line6);
     void healthCheck();
     bool needsRepaint;
   private:

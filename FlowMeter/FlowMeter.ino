@@ -70,6 +70,9 @@ double offsetResidualMl = 0.0;
 /** Intervalo mínimo entre pulsos (µs). 0 = filtro desabilitado. Recebido via MQTT. */
 unsigned long intervaloPulsoMinUs = 0;
 
+/** Modo desenvolvimento: exibe dados de debug detalhados no OLED. Recebido via MQTT. */
+bool modoDesenvolvimento = false;
+
 volatile bool valveStabilizing = false;
 unsigned long valveStabilizeStart = 0;
 

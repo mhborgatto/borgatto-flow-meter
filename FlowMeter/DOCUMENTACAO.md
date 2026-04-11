@@ -285,7 +285,8 @@ O dispositivo subscreve **dois tópicos**, ambos derivados de `config.mqttTopicB
   "descricao": "California IPA",
   "codCliente": 1,
   "offsetResidualMl": 3.8,
-  "intervaloPulsoMinUs": 500
+  "intervaloPulsoMinUs": 500,
+  "modoDesenvolvimento": true
 }
 ```
 
@@ -303,6 +304,7 @@ O dispositivo subscreve **dois tópicos**, ambos derivados de `config.mqttTopicB
 | `codCliente` | int | Sim | Código do cliente (incluído no relatório HTTP) |
 | `offsetResidualMl` | double | Não | Volume (mL) na tubagem entre sensor e solenóide. Se `> 0`, a válvula fecha antecipadamente (por `offsetResidualMl` mL) para compensar o líquido preso que já foi contabilizado pelo sensor. O display congela nos valores-alvo originais. Se `0` ou ausente, sem compensação (retrocompatível) |
 | `intervaloPulsoMinUs` | unsigned long | Não | Intervalo mínimo entre pulsos do sensor (µs). Pulsos mais rápidos que este intervalo são descartados como ruído/bounce. Se `0` ou ausente, filtro desabilitado (retrocompatível). Valor típico: `500` (2000 Hz máx) |
+| `modoDesenvolvimento` | bool | Não | Se `true`, o display OLED exibe 6 linhas compactas com dados de diagnóstico (pulsos, fator, offset, saldo, cliente, etc.) em vez do layout normal de 4 linhas. Se `false` ou ausente, display normal (retrocompatível) |
 
 ### 6.4 Exemplos de Uso
 
@@ -336,7 +338,8 @@ Resultado: válvula abre. O display mostra volume e valor em tempo real. Quando 
   "codCliente": 7,
   "tempoTorneira": 5,
   "offsetResidualMl": 3.8,
-  "intervaloPulsoMinUs": 500
+  "intervaloPulsoMinUs": 500,
+  "modoDesenvolvimento": true
 }
 ```
 Resultado: válvula abre. A contagem de pulsos inicia imediatamente (antes do pré-start da bomba). Quando atinge ~96.2 mL (100 − 3.8), fecha automaticamente para compensar o líquido preso na tubagem. O display mostra exatamente 100 mL e o valor correspondente. Pulsos com intervalo menor que 500 µs são descartados como ruído.

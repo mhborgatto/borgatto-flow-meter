@@ -150,11 +150,12 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
 
   offsetResidualMl = doc["offsetResidualMl"] | 0.0;
   intervaloPulsoMinUs = doc["intervaloPulsoMinUs"] | 0UL;
+  modoDesenvolvimento = doc["modoDesenvolvimento"] | false;
 
   Serial.println();
   Serial.println("-----------------------");
-  Serial.printf("[MQTT] comando=%d  valorMl=%.4f  saldo=%.2f  quantidade=%.2f  codCliente=%d  tempoTorneira=%lus  offsetResidualMl=%.2f  intervaloPulsoMinUs=%lu\n",
-                comando, valorMl, saldo, quantidade, codCliente, tempoTorneira, offsetResidualMl, intervaloPulsoMinUs);
+  Serial.printf("[MQTT] comando=%d  valorMl=%.4f  saldo=%.2f  quantidade=%.2f  codCliente=%d  tempoTorneira=%lus  offsetResidualMl=%.2f  intervaloPulsoMinUs=%lu  modoDev=%d\n",
+                comando, valorMl, saldo, quantidade, codCliente, tempoTorneira, offsetResidualMl, intervaloPulsoMinUs, modoDesenvolvimento);
 
   if (comando == 0) {
     Serial.println("[MQTT] Comando 0: desligando válvula e bomba");

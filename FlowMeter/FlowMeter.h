@@ -15,6 +15,7 @@ extern String textHeader;
 extern double saldo;
 extern double quantidade;
 extern double conversionFactor;
+extern int codCliente;
 extern String descricao;
 extern bool servingDisplayFrozen;
 extern double frozenServingMl;
@@ -26,6 +27,7 @@ extern unsigned long lastFlowActivityMs;
 extern volatile unsigned long lastPulseUs;
 extern unsigned long intervaloPulsoMinUs;
 extern double offsetResidualMl;
+extern bool modoDesenvolvimento;
 
 class FlowMeter {
 public:

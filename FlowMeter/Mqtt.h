@@ -42,6 +42,7 @@ extern unsigned long lastFlowActivityMs;
 
 extern double offsetResidualMl;
 extern unsigned long intervaloPulsoMinUs;
+extern bool modoDesenvolvimento;
 extern double flowMilliLitres;
 extern volatile unsigned long lastPulseUs;
 
