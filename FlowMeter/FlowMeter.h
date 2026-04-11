@@ -28,6 +28,8 @@ extern volatile unsigned long lastPulseUs;
 extern unsigned long intervaloPulsoMinUs;
 extern double offsetResidualMl;
 extern bool modoDesenvolvimento;
+extern bool modoCalibracao;
+extern unsigned long calibrationStartMs;
 
 class FlowMeter {
 public:

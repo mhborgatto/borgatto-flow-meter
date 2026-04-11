@@ -73,6 +73,10 @@ unsigned long intervaloPulsoMinUs = 0;
 /** Modo desenvolvimento: exibe dados de debug detalhados no OLED. Recebido via MQTT. */
 bool modoDesenvolvimento = false;
 
+/** Modo calibração: ignora limites, conta pulsos e reporta ao final. Recebido via MQTT. */
+bool modoCalibracao = false;
+unsigned long calibrationStartMs = 0;
+
 volatile bool valveStabilizing = false;
 unsigned long valveStabilizeStart = 0;
 
@@ -278,7 +282,41 @@ void loop() {
     detachInterrupt(digitalPinToInterrupt(sensor));
     enableFlowPulseCounting = false;
 
-    if (flowMilliLitres > 0.0005) {
+    if (modoCalibracao) {
+      // Modo calibração: reportar pulsos e duração
+      noInterrupts();
+      long calibPulses = myPulseCount;
+      interrupts();
+      unsigned long duracaoMs = millis() - calibrationStartMs;
+      double calibMl = static_cast<double>(calibPulses) * conversionFactor;
+
+      Serial.println("=== RELATORIO CALIBRACAO (timeout) ===");
+      Serial.printf("[CALIB] Pulsos: %ld\n", calibPulses);
+      Serial.printf("[CALIB] Duracao: %lu ms\n", duracaoMs);
+      Serial.printf("[CALIB] Fator atual: %.6f\n", conversionFactor);
+      Serial.printf("[CALIB] Volume calculado: %.1f mL\n", calibMl);
+      Serial.println("Formula: novoFator = volumeRealMl / pulsos");
+      Serial.println("============================");
+
+      // Publicar relatório via MQTT
+      mqtt.publish(mqttTopic, String("{\"tipo\":\"calibracao\",\"deviceId\":\"")
+        + config.deviceId + "\",\"pulsos\":" + calibPulses
+        + ",\"duracaoMs\":" + duracaoMs
+        + ",\"fatorAtual\":" + String(conversionFactor, 6)
+        + ",\"volumeCalculadoMl\":" + String(calibMl, 1) + "}");
+
+      // Mostrar no display
+      char d1[22]; snprintf(d1, sizeof(d1), "== CALIBRACAO ==");
+      char d2[22]; snprintf(d2, sizeof(d2), "Pulsos: %ld", calibPulses);
+      char d3[22]; snprintf(d3, sizeof(d3), "Dur: %.1fs", duracaoMs / 1000.0);
+      char d4[22]; snprintf(d4, sizeof(d4), "Fator: %.4f", conversionFactor);
+      char d5[22]; snprintf(d5, sizeof(d5), "Calc: %.0f ml", calibMl);
+      char d6[22]; snprintf(d6, sizeof(d6), "Medir vol real!");
+      display.showDebugFilling(d1, d2, d3, d4, d5, d6);
+
+      modoCalibracao = false;
+      mqttUiPending = 0;
+    } else if (flowMilliLitres > 0.0005) {
       totalValue = flowMilliLitres * valorMl / 100.0;
       frozenServingMl = flowMilliLitres;
       frozenServingValue = totalValue;
