@@ -40,6 +40,11 @@ extern bool servingDisplayFrozen;
 extern unsigned long tempoTorneira;
 extern unsigned long lastFlowActivityMs;
 
+extern double offsetResidualMl;
+extern unsigned long intervaloPulsoMinUs;
+extern double flowMilliLitres;
+extern volatile unsigned long lastPulseUs;
+
 class Mqtt {
 public:
   Mqtt();

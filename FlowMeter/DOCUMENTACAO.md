@@ -283,7 +283,9 @@ O dispositivo subscreve **dois tópicos**, ambos derivados de `config.mqttTopicB
   "quantidade": 0,
   "fatorConversao": 0.2207,
   "descricao": "California IPA",
-  "codCliente": 1
+  "codCliente": 1,
+  "offsetResidualMl": 3.8,
+  "intervaloPulsoMinUs": 500
 }
 ```
 
@@ -299,6 +301,8 @@ O dispositivo subscreve **dois tópicos**, ambos derivados de `config.mqttTopicB
 | `fatorConversao` | float | Não | Fator de conversão (pulsos → mL) específico para o chopp actual. Se `0`, ausente ou nulo, mantém o valor do config (`defaultConvFactor`) |
 | `descricao` | string | Não | Nome do chopp exibido no display. Se vazio ou ausente, exibe "Chopp" |
 | `codCliente` | int | Sim | Código do cliente (incluído no relatório HTTP) |
+| `offsetResidualMl` | double | Não | Volume (mL) na tubagem entre sensor e solenóide. Se `> 0`, a válvula fecha antecipadamente (por `offsetResidualMl` mL) para compensar o líquido preso que já foi contabilizado pelo sensor. O display congela nos valores-alvo originais. Se `0` ou ausente, sem compensação (retrocompatível) |
+| `intervaloPulsoMinUs` | unsigned long | Não | Intervalo mínimo entre pulsos do sensor (µs). Pulsos mais rápidos que este intervalo são descartados como ruído/bounce. Se `0` ou ausente, filtro desabilitado (retrocompatível). Valor típico: `500` (2000 Hz máx) |
 
 ### 6.4 Exemplos de Uso
 
@@ -318,7 +322,7 @@ O dispositivo subscreve **dois tópicos**, ambos derivados de `config.mqttTopicB
 ```
 Resultado: válvula abre. O display mostra volume e valor em tempo real. Quando o valor atinge R$ 10,00, a válvula fecha automaticamente e o display congela nos valores-alvo.
 
-**Liberar fluxo com limite por volume (100 mL):**
+**Liberar fluxo com limite por volume (100 mL) e compensação de residual:**
 
 ```json
 {
@@ -329,10 +333,13 @@ Resultado: válvula abre. O display mostra volume e valor em tempo real. Quando 
   "quantidade": 100,
   "fatorConversao": 0.25,
   "descricao": "IPA",
-  "codCliente": 7
+  "codCliente": 7,
+  "tempoTorneira": 5,
+  "offsetResidualMl": 3.8,
+  "intervaloPulsoMinUs": 500
 }
 ```
-Resultado: válvula abre. Quando atinge 100 mL, fecha automaticamente. O display mostra exatamente 100 mL e o valor correspondente.
+Resultado: válvula abre. A contagem de pulsos inicia imediatamente (antes do pré-start da bomba). Quando atinge ~96.2 mL (100 − 3.8), fecha automaticamente para compensar o líquido preso na tubagem. O display mostra exatamente 100 mL e o valor correspondente. Pulsos com intervalo menor que 500 µs são descartados como ruído.
 
 **Fechar válvula manualmente:**
 

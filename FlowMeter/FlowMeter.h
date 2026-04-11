@@ -23,6 +23,9 @@ extern int pumpPin;
 extern bool httpReportPending;
 extern unsigned long tempoTorneira;
 extern unsigned long lastFlowActivityMs;
+extern volatile unsigned long lastPulseUs;
+extern unsigned long intervaloPulsoMinUs;
+extern double offsetResidualMl;
 
 class FlowMeter {
 public:

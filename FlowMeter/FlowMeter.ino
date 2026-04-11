@@ -64,6 +64,12 @@ bool servingDisplayFrozen = false;
 double frozenServingMl = 0.0;
 double frozenServingValue = 0.0;
 
+/** Volume (mL) no trecho sensor→solenóide. Recebido via MQTT. */
+double offsetResidualMl = 0.0;
+
+/** Intervalo mínimo entre pulsos (µs). 0 = filtro desabilitado. Recebido via MQTT. */
+unsigned long intervaloPulsoMinUs = 0;
+
 volatile bool valveStabilizing = false;
 unsigned long valveStabilizeStart = 0;
 
@@ -235,21 +241,24 @@ void loop() {
 
   if (valveStabilizing) {
     if (millis() - valveStabilizeStart >= (unsigned long)config.valveDebounceMs) {
-      noInterrupts();
-      pulseCount = 0;
-      myPulseCount = 0;
-      interrupts();
-      flowMilliLitres = 0;
-      totalMilliLitres = 0;
-      totalLitres = 0;
-      pulseTotal = 0;
-      totalValue = 0;
-      flowRate = 0.0;
-      flowMeter.resetDisplayState();
       if (enableFlowPulseCounting) {
-        attachInterrupt(digitalPinToInterrupt(sensor), flowMeter.pulseCounter, FALLING);
+        // Interrupção já está ativa desde o comando MQTT 1.
+        // Não zerar contadores — fluxo já está sendo contabilizado.
         lastFlowActivityMs = millis();
+        Serial.printf("[DEBOUNCE] Estabilização concluída. Pulsos acumulados: %ld\n", myPulseCount);
       } else {
+        // Comando 0 (fechar): zerar tudo normalmente
+        noInterrupts();
+        pulseCount = 0;
+        myPulseCount = 0;
+        interrupts();
+        flowMilliLitres = 0;
+        totalMilliLitres = 0;
+        totalLitres = 0;
+        pulseTotal = 0;
+        totalValue = 0;
+        flowRate = 0.0;
+        flowMeter.resetDisplayState();
         detachInterrupt(digitalPinToInterrupt(sensor));
       }
       valveStabilizing = false;

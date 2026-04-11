@@ -13,6 +13,8 @@ long lastDebugLoggedMyPulseCount = 0;
 long lastActivityPulseCount = 0;
 }  // namespace
 
+volatile unsigned long lastPulseUs = 0;
+
 static const char* choppName() {
   return (descricao.length() > 0) ? descricao.c_str() : "Chopp";
 }
@@ -26,6 +28,11 @@ void FlowMeter::resetDisplayState() {
 }
 
 void ICACHE_RAM_ATTR FlowMeter::pulseCounter() {
+  if (intervaloPulsoMinUs > 0) {
+    unsigned long now = micros();
+    if (now - lastPulseUs < intervaloPulsoMinUs) return;
+    lastPulseUs = now;
+  }
   pulseCount++;
   myPulseCount++;
 }
@@ -84,13 +91,25 @@ void FlowMeter::calculateFlowV1() {
   if (flowMilliLitres > 0.0005) {
     totalValue = flowMilliLitres * valorMl / 100.0;
 
-    const bool hitSaldo = (saldo > 0.0 && valorMl > 1e-9 && totalValue >= saldo);
-    const bool hitQty = (quantidade > 0.0 && flowMilliLitres >= quantidade);
+    // Compensa o volume preso entre sensor e solenóide
+    const double effectiveQty = (quantidade > 0.0 && offsetResidualMl > 0.0)
+        ? quantidade - offsetResidualMl
+        : quantidade;
+    const double residualValueOffset = (offsetResidualMl > 0.0)
+        ? offsetResidualMl * valorMl / 100.0
+        : 0.0;
+    const double effectiveSaldo = (saldo > 0.0 && residualValueOffset > 0.0)
+        ? saldo - residualValueOffset
+        : saldo;
+
+    const bool hitSaldo = (effectiveSaldo > 0.0 && valorMl > 1e-9 && totalValue >= effectiveSaldo);
+    const bool hitQty = (effectiveQty > 0.0 && flowMilliLitres >= effectiveQty);
 
     if (hitSaldo || hitQty) {
       digitalWrite(D1, LOW);
       digitalWrite(pumpPin, LOW);
 
+      // Display congela nos valores ORIGINAIS (não efetivos)
       if (hitSaldo) {
         frozenServingValue = saldo;
         frozenServingMl = round(saldo * 100.0 / valorMl * 1000.0) / 1000.0;
@@ -101,6 +120,16 @@ void FlowMeter::calculateFlowV1() {
       frozenSnapshotPulses = pc;
       servingDisplayFrozen = true;
       httpReportPending = true;
+
+      Serial.println("=== RELATÓRIO DE SERVIDA ===");
+      Serial.printf("[CALIB] Pulsos totais: %ld\n", pc);
+      Serial.printf("[CALIB] Volume sensor real: %.1f mL\n", flowMilliLitres);
+      Serial.printf("[CALIB] Volume frozen: %.1f mL\n", frozenServingMl);
+      Serial.printf("[CALIB] Valor frozen: R$ %.2f\n", frozenServingValue);
+      Serial.printf("[CALIB] Fator: %.6f mL/pulso\n", conversionFactor);
+      Serial.printf("[CALIB] offsetResidualMl=%.2f  intervaloPulsoMinUs=%lu\n", offsetResidualMl, intervaloPulsoMinUs);
+      Serial.printf("[CALIB] Limite por: %s\n", hitSaldo ? "saldo" : "quantidade");
+      Serial.println("============================");
 
       snprintf(msg_vol_out, sizeof(msg_vol_out), "V: %.0f ml  P:%ld", frozenServingMl,
                frozenSnapshotPulses);

@@ -148,10 +148,13 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
 
   tempoTorneira = doc["tempoTorneira"] | 0UL;
 
+  offsetResidualMl = doc["offsetResidualMl"] | 0.0;
+  intervaloPulsoMinUs = doc["intervaloPulsoMinUs"] | 0UL;
+
   Serial.println();
   Serial.println("-----------------------");
-  Serial.printf("[MQTT] comando=%d  valorMl=%.4f  saldo=%.2f  quantidade=%.2f  codCliente=%d  tempoTorneira=%lus\n",
-                comando, valorMl, saldo, quantidade, codCliente, tempoTorneira);
+  Serial.printf("[MQTT] comando=%d  valorMl=%.4f  saldo=%.2f  quantidade=%.2f  codCliente=%d  tempoTorneira=%lus  offsetResidualMl=%.2f  intervaloPulsoMinUs=%lu\n",
+                comando, valorMl, saldo, quantidade, codCliente, tempoTorneira, offsetResidualMl, intervaloPulsoMinUs);
 
   if (comando == 0) {
     Serial.println("[MQTT] Comando 0: desligando válvula e bomba");
@@ -165,10 +168,21 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
     valveStabilizeStart = millis();
     mqttUiPending = 1;
   } else if (comando == 1) {
-    Serial.println("[MQTT] Comando 1: ligando bomba (pré-start), válvula abrirá em seguida");
+    Serial.println("[MQTT] Comando 1: zerando contadores e ativando sensor antes do pré-start");
     enableFlowPulseCounting = true;
-    detachInterrupt(digitalPinToInterrupt(sensor));
     servingDisplayFrozen = false;
+
+    // Zerar contadores e ativar interrupção ANTES de ligar a bomba
+    noInterrupts();
+    pulseCount = 0;
+    myPulseCount = 0;
+    interrupts();
+    flowMilliLitres = 0;
+    totalValue = 0;
+    lastPulseUs = 0;
+    attachInterrupt(digitalPinToInterrupt(sensor), flowMeter.pulseCounter, FALLING);
+
+    // Agora sim, ligar a bomba
     digitalWrite(pumpPin, HIGH);
     pumpPreStartActive = true;
     pumpPreStartBegin = millis();
