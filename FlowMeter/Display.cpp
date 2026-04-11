@@ -110,3 +110,24 @@ void Display::showFilling(const String &line1, const String &line2, const String
     Serial.printf("[DISPLAY] I2C bus falhou (consecutivas: %u)\n", consecutiveI2CFailures);
   }
 }
+
+void Display::showDebugFilling(const String &line1, const String &line2, const String &line3,
+                               const String &line4, const String &line5, const String &line6) {
+  display.clear();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(0, 0, line1);
+  display.drawString(0, 11, line2);
+  display.drawString(0, 22, line3);
+  display.drawString(0, 33, line4);
+  display.drawString(0, 44, line5);
+  display.drawString(0, 54, line6);
+  display.display();
+  if (isI2CBusOk()) {
+    lastSuccessfulWrite = millis();
+    consecutiveI2CFailures = 0;
+  } else {
+    consecutiveI2CFailures++;
+    Serial.printf("[DISPLAY] I2C bus falhou (consecutivas: %u)\n", consecutiveI2CFailures);
+  }
+}

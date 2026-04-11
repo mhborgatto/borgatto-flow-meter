@@ -283,7 +283,10 @@ O dispositivo subscreve **dois tópicos**, ambos derivados de `config.mqttTopicB
   "quantidade": 0,
   "fatorConversao": 0.2207,
   "descricao": "California IPA",
-  "codCliente": 1
+  "codCliente": 1,
+  "offsetResidualMl": 3.8,
+  "intervaloPulsoMinUs": 500,
+  "modoDesenvolvimento": true
 }
 ```
 
@@ -299,6 +302,10 @@ O dispositivo subscreve **dois tópicos**, ambos derivados de `config.mqttTopicB
 | `fatorConversao` | float | Não | Fator de conversão (pulsos → mL) específico para o chopp actual. Se `0`, ausente ou nulo, mantém o valor do config (`defaultConvFactor`) |
 | `descricao` | string | Não | Nome do chopp exibido no display. Se vazio ou ausente, exibe "Chopp" |
 | `codCliente` | int | Sim | Código do cliente (incluído no relatório HTTP) |
+| `offsetResidualMl` | double | Não | Volume (mL) na tubagem entre sensor e solenóide. Se `> 0`, a válvula fecha antecipadamente (por `offsetResidualMl` mL) para compensar o líquido preso que já foi contabilizado pelo sensor. O display congela nos valores-alvo originais. Se `0` ou ausente, sem compensação (retrocompatível) |
+| `intervaloPulsoMinUs` | unsigned long | Não | Intervalo mínimo entre pulsos do sensor (µs). Pulsos mais rápidos que este intervalo são descartados como ruído/bounce. Se `0` ou ausente, filtro desabilitado (retrocompatível). Valor típico: `500` (2000 Hz máx) |
+| `modoDesenvolvimento` | bool | Não | Se `true`, o display OLED exibe 6 linhas compactas com dados de diagnóstico (pulsos, fator, offset, saldo, cliente, etc.) em vez do layout normal de 4 linhas. Se `false` ou ausente, display normal (retrocompatível) |
+| `modoCalibracao` | bool | Não | Se `true`, ignora limites de `saldo` e `quantidade`. A válvula fecha apenas por `tempoTorneira` ou `comando: 0`. Ao fechar, publica relatório de calibração via MQTT com pulsos e duração. O display exibe dados de calibração em tempo real. Se `false` ou ausente, modo normal (retrocompatível) |
 
 ### 6.4 Exemplos de Uso
 
@@ -318,7 +325,7 @@ O dispositivo subscreve **dois tópicos**, ambos derivados de `config.mqttTopicB
 ```
 Resultado: válvula abre. O display mostra volume e valor em tempo real. Quando o valor atinge R$ 10,00, a válvula fecha automaticamente e o display congela nos valores-alvo.
 
-**Liberar fluxo com limite por volume (100 mL):**
+**Liberar fluxo com limite por volume (100 mL) e compensação de residual:**
 
 ```json
 {
@@ -329,10 +336,14 @@ Resultado: válvula abre. O display mostra volume e valor em tempo real. Quando 
   "quantidade": 100,
   "fatorConversao": 0.25,
   "descricao": "IPA",
-  "codCliente": 7
+  "codCliente": 7,
+  "tempoTorneira": 5,
+  "offsetResidualMl": 3.8,
+  "intervaloPulsoMinUs": 500,
+  "modoDesenvolvimento": true
 }
 ```
-Resultado: válvula abre. Quando atinge 100 mL, fecha automaticamente. O display mostra exatamente 100 mL e o valor correspondente.
+Resultado: válvula abre. A contagem de pulsos inicia imediatamente (antes do pré-start da bomba). Quando atinge ~96.2 mL (100 − 3.8), fecha automaticamente para compensar o líquido preso na tubagem. O display mostra exatamente 100 mL e o valor correspondente. Pulsos com intervalo menor que 500 µs são descartados como ruído.
 
 **Fechar válvula manualmente:**
 
@@ -348,6 +359,36 @@ Resultado: válvula abre. Quando atinge 100 mL, fecha automaticamente. O display
   "codCliente": 0
 }
 ```
+
+**Calibrar fator de conversão:**
+
+```json
+{
+  "token": "abc123",
+  "comando": 1,
+  "valorMl": 0,
+  "saldo": 0,
+  "quantidade": 0,
+  "fatorConversao": 3.5,
+  "descricao": "",
+  "codCliente": 0,
+  "tempoTorneira": 15,
+  "modoCalibracao": true
+}
+```
+Resultado: válvula abre por 15 segundos (sem limite de volume/saldo). O display mostra pulsos em tempo real. Ao expirar, o dispositivo publica no tópico MQTT:
+
+```json
+{
+  "tipo": "calibracao",
+  "deviceId": "Device1",
+  "pulsos": 114,
+  "duracaoMs": 15000,
+  "fatorAtual": 3.500000,
+  "volumeCalculadoMl": 399.0
+}
+```
+O operador mede o volume real dispensado (ex.: 400 mL) e calcula: `novoFator = 400 / 114 = 3.5088`. Este fator pode ser enviado na próxima requisição via `fatorConversao`.
 
 ### 6.5 Validação de Token
 

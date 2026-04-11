@@ -4,6 +4,8 @@
 #include <cstring>
 
 extern FlowMeter flowMeter;
+extern Mqtt mqtt;
+extern char mqttTopic[];
 
 Mqtt::Mqtt()
   : mqttClient(wifiClient), _port(0), _lastReconnectAttempt(0) {
@@ -148,15 +150,52 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
 
   tempoTorneira = doc["tempoTorneira"] | 0UL;
 
+  offsetResidualMl = doc["offsetResidualMl"] | 0.0;
+  intervaloPulsoMinUs = doc["intervaloPulsoMinUs"] | 0UL;
+  modoDesenvolvimento = doc["modoDesenvolvimento"] | false;
+  modoCalibracao = doc["modoCalibracao"] | false;
+
   Serial.println();
   Serial.println("-----------------------");
-  Serial.printf("[MQTT] comando=%d  valorMl=%.4f  saldo=%.2f  quantidade=%.2f  codCliente=%d  tempoTorneira=%lus\n",
-                comando, valorMl, saldo, quantidade, codCliente, tempoTorneira);
+  Serial.printf("[MQTT] cmd=%d vMl=%.4f sld=%.2f qty=%.2f cli=%d tT=%lus ofsR=%.2f intP=%lu dev=%d calib=%d\n",
+                comando, valorMl, saldo, quantidade, codCliente, tempoTorneira, offsetResidualMl, intervaloPulsoMinUs, modoDesenvolvimento, modoCalibracao);
 
   if (comando == 0) {
     Serial.println("[MQTT] Comando 0: desligando válvula e bomba");
+
+    // Se estava em modo calibração, publicar relatório antes de resetar
+    if (modoCalibracao && myPulseCount > 0) {
+      unsigned long duracaoMs = millis() - calibrationStartMs;
+      noInterrupts();
+      long calibPulses = myPulseCount;
+      interrupts();
+      double calibMl = static_cast<double>(calibPulses) * conversionFactor;
+
+      Serial.println("=== RELATORIO CALIBRACAO ===");
+      Serial.printf("[CALIB] Pulsos: %ld\n", calibPulses);
+      Serial.printf("[CALIB] Duracao: %lu ms\n", duracaoMs);
+      Serial.printf("[CALIB] Fator atual: %.6f\n", conversionFactor);
+      Serial.printf("[CALIB] Volume calculado: %.1f mL\n", calibMl);
+      Serial.println("Formula: novoFator = volumeRealMl / pulsos");
+      Serial.println("============================");
+
+      // Publicar via MQTT
+      StaticJsonDocument<256> calibDoc;
+      calibDoc["tipo"] = "calibracao";
+      calibDoc["deviceId"] = config.deviceId;
+      calibDoc["pulsos"] = calibPulses;
+      calibDoc["duracaoMs"] = duracaoMs;
+      calibDoc["fatorAtual"] = conversionFactor;
+      calibDoc["volumeCalculadoMl"] = calibMl;
+      char calibBuf[256];
+      serializeJson(calibDoc, calibBuf, sizeof(calibBuf));
+      mqtt.publish(mqttTopic, String(calibBuf));
+      Serial.printf("[MQTT] Relatorio calibracao publicado: %s\n", calibBuf);
+    }
+
     enableFlowPulseCounting = false;
     pumpPreStartActive = false;
+    modoCalibracao = false;
     detachInterrupt(digitalPinToInterrupt(sensor));
     servingDisplayFrozen = false;
     digitalWrite(D1, LOW);
@@ -165,14 +204,26 @@ void Mqtt::callback(char *topic, byte *payload, unsigned int length) {
     valveStabilizeStart = millis();
     mqttUiPending = 1;
   } else if (comando == 1) {
-    Serial.println("[MQTT] Comando 1: ligando bomba (pré-start), válvula abrirá em seguida");
+    Serial.println("[MQTT] Comando 1: zerando contadores e ativando sensor antes do pré-start");
     enableFlowPulseCounting = true;
-    detachInterrupt(digitalPinToInterrupt(sensor));
     servingDisplayFrozen = false;
+
+    // Zerar contadores e ativar interrupção ANTES de ligar a bomba
+    noInterrupts();
+    pulseCount = 0;
+    myPulseCount = 0;
+    interrupts();
+    flowMilliLitres = 0;
+    totalValue = 0;
+    lastPulseUs = 0;
+    attachInterrupt(digitalPinToInterrupt(sensor), flowMeter.pulseCounter, FALLING);
+
+    // Agora sim, ligar a bomba
     digitalWrite(pumpPin, HIGH);
     pumpPreStartActive = true;
     pumpPreStartBegin = millis();
     lastFlowActivityMs = millis();
+    calibrationStartMs = millis();
     mqttUiPending = 2;
   } else {
     Serial.printf("[MQTT] Comando %d ignorado (somente 0 e 1 são tratados)\n", comando);
